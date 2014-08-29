@@ -1,0 +1,200 @@
+#!/usr/bin/env node
+
+var esprima = require('esprima')
+var escodegen = require('escodegen')
+var estraverse = require('estraverse')
+var fs = require('fs')
+var _ = require('underscore')
+var esquery = require('esquery')
+
+if (process.argv.length !== 5) {
+    console.log('')
+    console.log('Usage: escut selector command file.js')
+    console.log('')
+    console.log(prefixLines('@param selector: see https://github.com/jrfeenst/esquery', '    '))
+    console.log(prefixLines('@param command: remove | yank | json', '    '))
+    console.log('')
+    console.log(prefixLines('Example: escut "Property[key.name=\'render\'][value.type=\'FunctionExpression\']" "yank" samples/test1.js', '    '))
+    console.log('')
+    return;
+}
+
+
+var COMMA_SEPARATED_KEYS = ['elements', 'expressions', 'arguments', 'properties', 'delarations'];
+
+var PROCESS = {
+    remove: function(config) {
+        var sorted = _.sortBy(config.queryResults, function(node) {
+            return node.range[0]
+        })
+
+        var code = config.code;
+        var newCode = '';
+        var x = 0;
+        var comments = config.ast.comments;
+        var commentIndex = 0;
+        function skipCommentsUntil(stop) {
+            var comment
+            for (; commentIndex < comments.length; commentIndex++) {
+                comment = comments[commentIndex]
+                if (comment.range[1] >= stop) break;
+            }
+            return comment
+        }
+        estraverse.traverse(config.ast, {
+            enter: function(node, parent) {
+                skipCommentsUntil(node.range[0])
+                if (sorted.indexOf(node) >= 0) {
+                    newCode += code.substring(x, node.range[0])
+                    x = node.range[0]
+                    return estraverse.VisitorOption.Skip
+                } else {
+                    newCode += code.substring(x, node.range[0])
+                    x = node.range[0]
+                }
+            },
+            leave: function(node, parent) {
+                skipCommentsUntil(node.range[1])
+                if (sorted.indexOf(node) >= 0) {
+                    x = node.range[1]
+                    if (canBeCommaSeparable(parent)) {
+                        var substr = code.substring(node.range[1])
+                        var matchTrailingComma = substr.match(/^[\s\n\r]*,/)
+                        if (matchTrailingComma) {
+                            x += matchTrailingComma[0].length
+                        } else {
+                            var nextSibling = getNextCommaSeparableSibling(parent, node)
+                            if (nextSibling) {
+                                var maybeSkippableStr = code.substring(x, nextSibling.range[0])
+                                var x1 = x;
+                                var i = maybeSkippableStr.indexOf(',');
+                                while (i >= 0) {
+                                    var comment = skipCommentsUntil(x1 + i);
+                                    if (comment) {
+                                        if (comment.range[0] <= x1 + i) {
+                                            x1 = comment.range[1]
+                                        } else {
+                                            x1 += i+1
+                                        }
+                                    } else {
+                                        x1 += i+1
+                                        break;
+                                    }
+                                    maybeSkippableStr = code.substring(x1, nextSibling.range[0])
+                                    i = maybeSkippableStr.indexOf(',')
+                                }
+                                x = x1
+                            }
+                        }
+                    }
+                } else {
+                    newCode += code.substring(x, node.range[1])
+                    x = node.range[1]
+                }
+            }
+        });
+        newCode += code.substring(x);
+        return newCode;
+    },
+    yank: function(config) {
+        var code = config.code
+        function indentationBefore(x) {
+            for (var x0=x-1; /\s/.test(code[x0]); x0--);
+            return x0+1;
+        }
+        return _.map(config.queryResults, function(node) {
+            return code.substring(indentationBefore(node.range[0]), node.range[1])
+        }).join('\n')
+    },
+    json: function(config) {
+        return JSON.stringify(config.queryResults, null, 4)
+    }
+}
+
+
+
+
+
+
+
+var selector = process.argv[2]
+var commandStr = process.argv[3]
+var filenames = [process.argv[4]]
+var codes = _.map(filenames, readIt)
+var asts = _.map(codes, toAst)
+var queryResults = _.map(asts, queryIt(selector))
+var filteredResults = _.map(queryResults, filterIt(commandStr))
+
+//=================================
+console.log(filteredResults.join())
+//=================================
+
+function filterIt(str) {
+    var commands = str.split(/\s*\|\s*/)
+    return function(config) {
+        return _.map(commands, function(command) {
+            return PROCESS[command](config)
+        })
+    }
+}
+
+function queryIt(query) {
+    return function(config) {
+        return _.extend(config, {
+            queryResults: esquery.query(config.ast, query)
+        })
+    }
+}
+function readIt(filename) {
+    return {
+        filename: filename,
+        code: fs.readFileSync(filename, 'utf-8')
+    }
+}
+function toAst(config) {
+    try {
+        return _.extend(config, {
+            ast: esprima.parse(config.code, {
+                range: true,
+                comment: true
+            })
+        })
+    } catch (err) {
+        console.error(config.filename + ': invalid code, make sure there are no syntax errors!')
+        process.exit(1)
+    }
+}
+function toCode(ast) {
+    return escodegen.generate(ast)
+}
+function prefixLines(str, prefix) {
+    return _.map(str.split('\n'), function(s) {
+        return prefix + s
+    }).join('\n')
+}
+function repeatStr(str, count) {
+    return _.map(_.range(count), function() {
+        return str
+    }).join('')
+}
+
+function canBeCommaSeparable(node) {
+    return _.any(COMMA_SEPARATED_KEYS, function(key) {
+        return node.hasOwnProperty(key)
+    })
+}
+function getCommaSeparableChildren(node) {
+    var children
+    _.any(COMMA_SEPARATED_KEYS, function(key) {
+        if (node.hasOwnProperty(key)) {
+            children = node[key]
+            return true;
+        }
+    })
+    return children || []
+}
+function getNextCommaSeparableSibling(parent, node) {
+    var siblings = getCommaSeparableChildren(parent);
+    var i = siblings.indexOf(node)
+    return siblings[i+1] || null
+}

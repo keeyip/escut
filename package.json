@@ -1,0 +1,31 @@
+{
+  "name": "escut",
+  "version": "0.0.0",
+  "description": "Compare two javascript files at the ast level",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "escut": "./bin/escut"
+  },
+  "author": {
+    "name": "Kee-Yip Chan"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/keeyip/escut.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "estraverse": "~1.5.1",
+    "underscore": "~1.7.0",
+    "esprima": "~1.2.2",
+    "escodegen": "~1.4.0",
+    "jsondiffpatch": "~0.1.8",
+    "ansidiff": "~1.0.0",
+    "esquery": "~0.3.0",
+    "rocambole-node-remove": "~1.0.0",
+    "rocambole": "~0.3.6"
+  }
+}
