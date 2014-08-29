@@ -1,3 +1,5 @@
+all: test_yank test_remove_after_multiline_comment
+
 test_yank:
 	escut "Property[key.name='render'][value.type='FunctionExpression']" "yank" samples/test1.js
 

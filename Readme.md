@@ -1,20 +1,36 @@
 # Install as command-line tool
 
-    npm install -g esdiff
+    npm install -g escut
 
-    Usage: esdiff comparison file1.js file2.js
 
-        @param comparison: --chars | --words | --lines | --css
 
-        Example: esdiff --chars file1.js file2.js
+    Usage: escut selector command file.js
+
+        @param selector: see https://github.com/jrfeenst/esquery
+        @param command: remove | yank | json
+
+        Example: escut "Property[key.name='render'][value.type='FunctionExpression']" "yank" samples/test1.js
+
 
 # Example
 
-    esdiff --words samples/test1_a.js samples/test1_b.js
 
-    Comparing: samples/test1_a.js, samples/test1_b.js
-    --------------------------------------------------------------------------------
-        function x() {
-            alert('[7m[32mbye[39m[27m[7m[31mhi[39m[27m');
+    escut "Property[key.name='render'][value.type='FunctionExpression']" "yank" samples/test1.js
+
+        render: function() {
         }
-    --------------------------------------------------------------------------------
+
+
+
+
+    escut "Property[key.name='build'][value.type='FunctionExpression']" "remove" samples/test1.js
+    var x = {
+
+        /*
+        Do not remove this
+        */
+        render: function() {
+        },
+        close: function() {
+        }
+    }
