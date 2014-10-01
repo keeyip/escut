@@ -4,14 +4,27 @@ var esprima = require('esprima')
 var escodegen = require('escodegen')
 var estraverse = require('estraverse')
 var fs = require('fs')
+var objectPath = require('object-path');
 var _ = require('underscore')
-var esquery = require('esquery')
+var esquery = require('mustache-esquery')
+esquery.matchMustache = function(node, selector, ancestry) {
+    var parts = selector.expr.split(/\s+/);
+    var predicateParts = parts.shift().split('.');
+    var args = parts;
+    var moduleName = predicateParts.shift();
+    var namespace = require('../predicates/' + moduleName);
+    var predicate = objectPath.get(namespace, predicateParts);
+    if (_.isFunction(predicate)) {
+        return !!predicate(args, node, ancestry);
+    }
+    return false;
+};
 
 if (process.argv.length !== 5) {
     console.log('')
     console.log('Usage: escut selector command file.js')
     console.log('')
-    console.log(prefixLines('@param selector: see https://github.com/jrfeenst/esquery', '    '))
+    console.log(prefixLines('@param selector: see https://github.com/keeyip/esquery', '    '))
     console.log(prefixLines('@param command: remove | yank | json', '    '))
     console.log('')
     console.log(prefixLines('Example: escut "Property[key.name=\'render\'][value.type=\'FunctionExpression\']" "yank" samples/test1.js', '    '))

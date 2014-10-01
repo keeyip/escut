@@ -1,4 +1,7 @@
-all: test_yank test_remove_after_multiline_comment
+all: test_reserved_words test_yank test_remove_after_multiline_comment
+
+test_reserved_words:
+	escut "Property:{badWords.isBadForInternetExplorer8 key.name}[key.type='Identifier']" "yank" samples/reserved-word-as-unquoted-property-key.js
 
 test_yank:
 	escut "Property[key.name='render'][value.type='FunctionExpression']" "yank" samples/test1.js
