@@ -11,6 +11,7 @@ var API = {
     isRestrictedWord: isRestrictedWord,
     isKeyword: isKeyword,
     _isBadForInternetExplorer8: function(id) {
+        if (!id) return false;
         return _.any([
             isKeyword,
             isRestrictedWord,

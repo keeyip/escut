@@ -25,7 +25,7 @@ if (process.argv.length !== 5) {
     console.log('Usage: escut selector command file.js')
     console.log('')
     console.log(prefixLines('@param selector: see https://github.com/keeyip/esquery', '    '))
-    console.log(prefixLines('@param command: remove | yank | json', '    '))
+    console.log(prefixLines('@param command: remove | yank | quote-property | quote-member | json', '    '))
     console.log('')
     console.log(prefixLines('Example: escut "Property[key.name=\'render\'][value.type=\'FunctionExpression\']" "yank" samples/test1.js', '    '))
     console.log('')
@@ -119,6 +119,66 @@ var PROCESS = {
             return code.substring(indentationBefore(node.range[0]), node.range[1])
         }).join('\n')
     },
+    'print': function(config) {
+        return printAdjustedAst(config.code, config.ast);
+    },
+    'quote-property': function(config) {
+        // Sort for speedup during in-order transformation.
+        var descendingMatchedNodes = sortByRange0(_.where(config.queryResults, {type:'Property'}));
+
+        config.ast = estraverse.replace(config.ast, {
+            enter: function(node) {
+                if (descendingMatchedNodes.length === 0) {
+                    return estraverse.VisitorOption.Break;
+                }
+
+                if (descendingMatchedNodes[0].key === node) {
+                    descendingMatchedNodes.shift();
+                    var literal = {
+                        type: 'Literal',
+                        value: node.name,
+                        range: node.range,
+                    };
+                    literal.__escutNewCode = literal.raw = escodegen.generate(literal);
+                    return literal;
+                }
+            }
+        });
+    },
+    'quote-member': function(config) {
+        // Sort for speedup during in-order transformation.
+        var descendingMatchedNodes = sortByRange0(_.where(config.queryResults, {type:'MemberExpression'}));
+
+        config.ast = estraverse.replace(config.ast, {
+            enter: function(node) {
+                if (descendingMatchedNodes.length === 0) {
+                    return estraverse.VisitorOption.Break;
+                }
+                if (descendingMatchedNodes[0].property === node) {
+                    var literal = {
+                        type: 'Literal',
+                        value: node.name,
+                        range: node.range,
+                    };
+                    literal.__escutNewCode = literal.raw = escodegen.generate(literal);
+                    return literal;
+                }
+            },
+            leave: function(node) {
+                if (descendingMatchedNodes[0] === node) {
+                    descendingMatchedNodes.shift();
+                    return _.extend({}, node, {
+                        computed: true,
+                        __escutNewCode:
+                            printAdjustedAst(config.code.substring(node.object.range[0], node.object.range[1]), node.object) +
+                            '[' +
+                                node.property.__escutNewCode +
+                            ']'
+                    });
+                }
+            }
+        });
+    },
     json: function(config) {
         return JSON.stringify(config.queryResults, null, 4)
     }
@@ -145,9 +205,11 @@ console.log(filteredResults.join())
 function filterIt(str) {
     var commands = str.split(/\s*\|\s*/)
     return function(config) {
-        return _.map(commands, function(command) {
-            return PROCESS[command](config)
-        })
+        estraverse.attachComments(config.ast, config.ast.comments, config.ast.tokens);
+
+        return _.reduce(commands, function(result, command) {
+            return PROCESS[command](config);
+        }, null)
     }
 }
 
@@ -168,6 +230,7 @@ function toAst(config) {
     try {
         return _.extend(config, {
             ast: esprima.parse(config.code, {
+                tokens: true,
                 range: true,
                 comment: true
             })
@@ -176,9 +239,6 @@ function toAst(config) {
         console.error(config.filename + ': invalid code, make sure there are no syntax errors!')
         process.exit(1)
     }
-}
-function toCode(ast) {
-    return escodegen.generate(ast)
 }
 function prefixLines(str, prefix) {
     return _.map(str.split('\n'), function(s) {
@@ -211,3 +271,41 @@ function getNextCommaSeparableSibling(parent, node) {
     var i = siblings.indexOf(node)
     return siblings[i+1] || null
 }
+
+function parseExpression(str) {
+    return esprima.parse('(' + str +')').body[0].expression;
+}
+function sortByRange0(nodes) {
+    return _.sortBy(nodes, function(node) {
+        return node.range[0];
+    });
+}
+
+function printAdjustedAst(code, ast) {
+    // Use escodgen as a last resort, it is not good at maintaining comments.
+
+    var newCode = '';
+    var cursor = 0;
+    estraverse.traverse(ast, {
+        enter: function(node) {
+            if (node.__escutNewCode) {
+                newCode += code.substring(cursor, node.range[0]);
+                newCode += node.__escutNewCode;
+                cursor = node.range[1];
+                return estraverse.VisitorOption.Skip;
+            } else {
+                newCode += code.substring(cursor, node.range[0]);
+                cursor = node.range[0];
+            }
+        },
+        leave: function(node) {
+            if (node.__escutNewCode) return;
+
+            newCode += code.substring(cursor, node.range[1]);
+            cursor = node.range[1];
+        }
+    });
+    newCode += code.substring(cursor);
+    return newCode;
+}
+
