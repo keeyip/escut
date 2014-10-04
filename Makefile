@@ -1,4 +1,14 @@
-all: test_quote_reserved_words test_quote_reversed_words_member_expression test_quote_reversed_words_property_literals test_reserved_words_property_literals test_reserved_words_member_expression test_yank test_remove_after_multiline_comment
+all:test_quote_reserved_words \
+	test_quote_reversed_words_property_literals \
+	test_reserved_words_property_literals \
+	test_quote_reversed_words_member_expression \
+	test_reserved_words_member_expression \
+	test_rewrite_function_bind \
+	test_function_bind \
+	test_yank \
+	test_json \
+	test_remove \
+	test_remove_after_multiline_comment
 
 test_quote_reserved_words:
 	escut "Property:{badWords.isBadForInternetExplorer8 key.name}[key.type='Identifier'],MemberExpression:{badWords.isBadForInternetExplorer8 property.name}[computed=false][property.type='Identifier']" "quote-member|quote-property|print" samples/reserved-word-as-unquoted-property-key.js
@@ -32,3 +42,4 @@ test_remove:
 
 test_remove_after_multiline_comment:
 	escut "Property[key.name='build'][value.type='FunctionExpression']" "remove" samples/test1.js
+

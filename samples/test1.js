@@ -4,7 +4,7 @@ var x = {
     weird multiline comment, wefjkl
     before a comma
     */ /*
-    wei,rd multiline comment, wefjkl
+    weird multiline comment, wefjkl
     before a comma
     */
     ,

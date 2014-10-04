@@ -7,25 +7,6 @@ var fs = require('fs')
 var objectPath = require('object-path');
 var _ = require('underscore')
 var esquery = require('mustache-esquery')
-var handlebars = require('handlebars');
-var rewriter = handlebars.create();
-rewriter.registerHelper('escut', function(options) {
-    var data = rewriter.createFrame({
-        ast: this.ast,
-        code: this.code
-    });
-    return options.fn(this.node, {
-        data: data
-    });
-});
-rewriter.registerHelper('js', function(node, options) {
-    return printAdjustedAst(options.data.code, node, node.range[0], node.range[1]);
-});
-rewriter.registerHelper('splat', function(nodes, options) {
-    return _.map(nodes, function(node) {
-        return printAdjustedAst(options.data.code, node, node.range[0], node.range[1]);
-    }).join(', ');
-});
 
 esquery.matchMustache = function(node, selector, ancestry) {
     var parts = selector.expr.split(/\s+/);
@@ -52,170 +33,6 @@ if (process.argv.length !== 5) {
     return;
 }
 
-
-var COMMA_SEPARATED_KEYS = ['elements', 'expressions', 'arguments', 'properties', 'delarations'];
-
-var PROCESS = {
-    remove: function(config) {
-        var sorted = _.sortBy(config.queryResults, function(node) {
-            return node.range[0]
-        })
-
-        var code = config.code;
-        var newCode = '';
-        var x = 0;
-        var comments = config.ast.comments;
-        var commentIndex = 0;
-        function skipCommentsUntil(stop) {
-            var comment
-            for (; commentIndex < comments.length; commentIndex++) {
-                comment = comments[commentIndex]
-                if (comment.range[1] >= stop) break;
-            }
-            return comment
-        }
-        estraverse.traverse(config.ast, {
-            enter: function(node, parent) {
-                skipCommentsUntil(node.range[0])
-                if (sorted.indexOf(node) >= 0) {
-                    newCode += code.substring(x, node.range[0])
-                    x = node.range[0]
-                    return estraverse.VisitorOption.Skip
-                } else {
-                    newCode += code.substring(x, node.range[0])
-                    x = node.range[0]
-                }
-            },
-            leave: function(node, parent) {
-                skipCommentsUntil(node.range[1])
-                if (sorted.indexOf(node) >= 0) {
-                    x = node.range[1]
-                    if (canBeCommaSeparable(parent)) {
-                        var substr = code.substring(node.range[1])
-                        var matchTrailingComma = substr.match(/^[\s\n\r]*,/)
-                        if (matchTrailingComma) {
-                            x += matchTrailingComma[0].length
-                        } else {
-                            var nextSibling = getNextCommaSeparableSibling(parent, node)
-                            if (nextSibling) {
-                                var maybeSkippableStr = code.substring(x, nextSibling.range[0])
-                                var x1 = x;
-                                var i = maybeSkippableStr.indexOf(',');
-                                while (i >= 0) {
-                                    var comment = skipCommentsUntil(x1 + i);
-                                    if (comment) {
-                                        if (comment.range[0] <= x1 + i) {
-                                            x1 = comment.range[1]
-                                        } else {
-                                            x1 += i+1
-                                        }
-                                    } else {
-                                        x1 += i+1
-                                        break;
-                                    }
-                                    maybeSkippableStr = code.substring(x1, nextSibling.range[0])
-                                    i = maybeSkippableStr.indexOf(',')
-                                }
-                                x = x1
-                            }
-                        }
-                    }
-                } else {
-                    newCode += code.substring(x, node.range[1])
-                    x = node.range[1]
-                }
-            }
-        });
-        newCode += code.substring(x);
-        return newCode;
-    },
-    yank: function(config) {
-        var code = config.code
-        function indentationBefore(x) {
-            for (var x0=x-1; /\s/.test(code[x0]); x0--);
-            return x0+1;
-        }
-        return _.map(config.queryResults, function(node) {
-            return code.substring(indentationBefore(node.range[0]), node.range[1])
-        }).join('\n')
-    },
-    'rewrite': function(config, template) {
-        var rewrite = rewriter.compile('{{#escut}}' + template + '{{/escut}}', {
-            noEscape: true
-        });
-        _.each(config.queryResults, function(node) {
-            node.__escutNewCode = rewrite({
-                code: config.code,
-                ast: config.ast,
-                node: node
-            });
-        });
-        return printAdjustedAst(config.code, config.ast);
-    },
-    'print': function(config) {
-        return printAdjustedAst(config.code, config.ast);
-    },
-    'quote-property': function(config) {
-        // Sort for speedup during in-order transformation.
-        var descendingMatchedNodes = sortByRange0(_.where(config.queryResults, {type:'Property'}));
-
-        config.ast = estraverse.replace(config.ast, {
-            enter: function(node) {
-                if (descendingMatchedNodes.length === 0) {
-                    return estraverse.VisitorOption.Break;
-                }
-
-                if (descendingMatchedNodes[0].key === node) {
-                    descendingMatchedNodes.shift();
-                    var literal = {
-                        type: 'Literal',
-                        value: node.name,
-                        range: node.range,
-                    };
-                    literal.__escutNewCode = literal.raw = escodegen.generate(literal);
-                    return literal;
-                }
-            }
-        });
-    },
-    'quote-member': function(config) {
-        // Sort for speedup during in-order transformation.
-        var descendingMatchedNodes = sortByRange0(_.where(config.queryResults, {type:'MemberExpression'}));
-
-        config.ast = estraverse.replace(config.ast, {
-            enter: function(node) {
-                if (descendingMatchedNodes.length === 0) {
-                    return estraverse.VisitorOption.Break;
-                }
-                if (descendingMatchedNodes[0].property === node) {
-                    var literal = {
-                        type: 'Literal',
-                        value: node.name,
-                        range: node.range,
-                    };
-                    literal.__escutNewCode = literal.raw = escodegen.generate(literal);
-                    return literal;
-                }
-            },
-            leave: function(node) {
-                if (descendingMatchedNodes[0] === node) {
-                    descendingMatchedNodes.shift();
-                    return _.extend({}, node, {
-                        computed: true,
-                        __escutNewCode:
-                            printAdjustedAst(config.code, node.object, node.object.range[0], node.object.range[1]) +
-                            '[' +
-                                node.property.__escutNewCode +
-                            ']'
-                    });
-                }
-            }
-        });
-    },
-    json: function(config) {
-        return JSON.stringify(config.queryResults, null, 4)
-    }
-}
 
 
 
@@ -245,10 +62,9 @@ function filterIt(str) {
             if (matchSpace) {
                 var commandName = command.substring(0, matchSpace.index);
                 var arg = command.substring(matchSpace.index).trim();
-                //escut "CallExpression[callee.type='MemberExpression'][callee.computed=false][callee.property.name='bind']" "adjust _.bind({{code callee}}, {{splat callee.arguments}}" 1.js
-                return PROCESS[commandName](config, arg);
+                return require('../commands/' + commandName).run(config, arg);
             } else {
-                return PROCESS[command](config);
+                return require('../commands/' + command).run(config);
             }
         }, null)
     }
@@ -285,71 +101,5 @@ function prefixLines(str, prefix) {
     return _.map(str.split('\n'), function(s) {
         return prefix + s
     }).join('\n')
-}
-function repeatStr(str, count) {
-    return _.map(_.range(count), function() {
-        return str
-    }).join('')
-}
-
-function canBeCommaSeparable(node) {
-    return _.any(COMMA_SEPARATED_KEYS, function(key) {
-        return node.hasOwnProperty(key)
-    })
-}
-function getCommaSeparableChildren(node) {
-    var children
-    _.any(COMMA_SEPARATED_KEYS, function(key) {
-        if (node.hasOwnProperty(key)) {
-            children = node[key]
-            return true;
-        }
-    })
-    return children || []
-}
-function getNextCommaSeparableSibling(parent, node) {
-    var siblings = getCommaSeparableChildren(parent);
-    var i = siblings.indexOf(node)
-    return siblings[i+1] || null
-}
-
-function parseExpression(str) {
-    return esprima.parse('(' + str +')').body[0].expression;
-}
-function sortByRange0(nodes) {
-    return _.sortBy(nodes, function(node) {
-        return node.range[0];
-    });
-}
-
-function printAdjustedAst(code, ast, start, stop) {
-    // Use escodgen as a last resort, it is not good at maintaining comments.
-
-    var newCode = '';
-    var cursor = start || 0;
-    if (!_.isUndefined(stop)) {
-        code = code.substring(0, stop);
-    }
-    estraverse.traverse(ast, {
-        enter: function(node) {
-            if (node.__escutNewCode) {
-                newCode += code.substring(cursor, node.range[0]);
-                newCode += node.__escutNewCode;
-                cursor = node.range[1];
-                return estraverse.VisitorOption.Skip;
-            } else {
-                newCode += code.substring(cursor, node.range[0]);
-                cursor = node.range[0];
-            }
-        },
-        leave: function(node) {
-            if (node.__escutNewCode) return;
-
-            newCode += code.substring(cursor, node.range[1]);
-            cursor = node.range[1];
-        }
-    });
-    newCode += code.substring(cursor);
-    return newCode;
 }
 
