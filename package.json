@@ -1,6 +1,6 @@
 {
   "name": "escut",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Cli tool to refactor and query javascript",
   "main": "index.js",
   "scripts": {
