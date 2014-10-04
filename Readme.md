@@ -61,18 +61,18 @@ escut "Property[key.name='about'] > .key" "rewrite help" commands/quote-property
 ```
 
 Suppose you want to do this for **each** file below:
-commands/
-├── json.js
-├── print.js
-├── quote-member.js
-├── quote-property.js
-├── remove.js
-├── rewrite
-│   ├── helpers
-│   │   ├── js.js
-│   │   └── splat.js
-│   └── index.js
-└── yank.js
+    commands/
+    ├── json.js
+    ├── print.js
+    ├── quote-member.js
+    ├── quote-property.js
+    ├── remove.js
+    ├── rewrite
+    │   ├── helpers
+    │   │   ├── js.js
+    │   │   └── splat.js
+    │   └── index.js
+    └── yank.js
 
 Solution:
 ```bash
