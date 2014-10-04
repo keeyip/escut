@@ -61,6 +61,7 @@ escut "Property[key.name='about'] > .key" "rewrite help" commands/quote-property
 ```
 
 Suppose you want to do this for **each** file below:
+
     commands/
     ├── json.js
     ├── print.js
