@@ -15,6 +15,12 @@ test_quote_reversed_words_member_expression:
 test_reserved_words_member_expression:
 	escut "MemberExpression:{badWords.isBadForInternetExplorer8 property.name}[computed=false][property.type='Identifier']" "yank" samples/reserved-word-as-unquoted-property-key.js
 
+test_rewrite_function_bind:
+	escut "CallExpression[callee.type='MemberExpression']:not([callee.object.type='CallExpression'][callee.object.callee.name='_'])[callee.object.name!='_'][callee.property.name='bind']" "rewrite _.bind({{js callee.object}}, {{splat arguments}})" samples/function-bind.js
+
+test_function_bind:
+	escut "CallExpression[callee.type='MemberExpression']:not([callee.object.type='CallExpression'][callee.object.callee.name='_'])[callee.object.name!='_'][callee.property.name='bind']" "yank" samples/function-bind.js
+
 test_yank:
 	escut "Property[key.name='render'][value.type='FunctionExpression']" "yank" samples/test1.js
 

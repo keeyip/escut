@@ -29,6 +29,7 @@
     "rocambole": "~0.3.6",
     "rx": "~2.3.8",
     "shell-parse": "0.0.2",
-    "object-path": "~0.6.0"
+    "object-path": "~0.6.0",
+    "handlebars": "~2.0.0"
   }
 }

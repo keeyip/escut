@@ -7,6 +7,26 @@ var fs = require('fs')
 var objectPath = require('object-path');
 var _ = require('underscore')
 var esquery = require('mustache-esquery')
+var handlebars = require('handlebars');
+var rewriter = handlebars.create();
+rewriter.registerHelper('escut', function(options) {
+    var data = rewriter.createFrame({
+        ast: this.ast,
+        code: this.code
+    });
+    return options.fn(this.node, {
+        data: data
+    });
+});
+rewriter.registerHelper('js', function(node, options) {
+    return printAdjustedAst(options.data.code, node, node.range[0], node.range[1]);
+});
+rewriter.registerHelper('splat', function(nodes, options) {
+    return _.map(nodes, function(node) {
+        return printAdjustedAst(options.data.code, node, node.range[0], node.range[1]);
+    }).join(', ');
+});
+
 esquery.matchMustache = function(node, selector, ancestry) {
     var parts = selector.expr.split(/\s+/);
     var predicateParts = parts.shift().split('.');
@@ -25,7 +45,7 @@ if (process.argv.length !== 5) {
     console.log('Usage: escut selector command file.js')
     console.log('')
     console.log(prefixLines('@param selector: see https://github.com/keeyip/esquery', '    '))
-    console.log(prefixLines('@param command: remove | yank | quote-property | quote-member | json', '    '))
+    console.log(prefixLines('@param command: remove | yank | quote-property | quote-member | "rewrite _.bind({{js callee.object}}, {{splat arguments}})" | json', '    '))
     console.log('')
     console.log(prefixLines('Example: escut "Property[key.name=\'render\'][value.type=\'FunctionExpression\']" "yank" samples/test1.js', '    '))
     console.log('')
@@ -119,6 +139,19 @@ var PROCESS = {
             return code.substring(indentationBefore(node.range[0]), node.range[1])
         }).join('\n')
     },
+    'rewrite': function(config, template) {
+        var rewrite = rewriter.compile('{{#escut}}' + template + '{{/escut}}', {
+            noEscape: true
+        });
+        _.each(config.queryResults, function(node) {
+            node.__escutNewCode = rewrite({
+                code: config.code,
+                ast: config.ast,
+                node: node
+            });
+        });
+        return printAdjustedAst(config.code, config.ast);
+    },
     'print': function(config) {
         return printAdjustedAst(config.code, config.ast);
     },
@@ -170,7 +203,7 @@ var PROCESS = {
                     return _.extend({}, node, {
                         computed: true,
                         __escutNewCode:
-                            printAdjustedAst(config.code.substring(node.object.range[0], node.object.range[1]), node.object) +
+                            printAdjustedAst(config.code, node.object, node.object.range[0], node.object.range[1]) +
                             '[' +
                                 node.property.__escutNewCode +
                             ']'
@@ -208,7 +241,15 @@ function filterIt(str) {
         estraverse.attachComments(config.ast, config.ast.comments, config.ast.tokens);
 
         return _.reduce(commands, function(result, command) {
-            return PROCESS[command](config);
+            var matchSpace = command.match(/\s+/);
+            if (matchSpace) {
+                var commandName = command.substring(0, matchSpace.index);
+                var arg = command.substring(matchSpace.index).trim();
+                //escut "CallExpression[callee.type='MemberExpression'][callee.computed=false][callee.property.name='bind']" "adjust _.bind({{code callee}}, {{splat callee.arguments}}" 1.js
+                return PROCESS[commandName](config, arg);
+            } else {
+                return PROCESS[command](config);
+            }
         }, null)
     }
 }
@@ -281,11 +322,14 @@ function sortByRange0(nodes) {
     });
 }
 
-function printAdjustedAst(code, ast) {
+function printAdjustedAst(code, ast, start, stop) {
     // Use escodgen as a last resort, it is not good at maintaining comments.
 
     var newCode = '';
-    var cursor = 0;
+    var cursor = start || 0;
+    if (!_.isUndefined(stop)) {
+        code = code.substring(0, stop);
+    }
     estraverse.traverse(ast, {
         enter: function(node) {
             if (node.__escutNewCode) {
