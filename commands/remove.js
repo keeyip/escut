@@ -1,5 +1,5 @@
 module.exports = {
-    about: {
+    help: {
         arguments: '',
         description: '',
         examples: [
@@ -86,3 +86,4 @@ function run(config) {
     newCode += code.substring(x);
     return newCode;
 }
+

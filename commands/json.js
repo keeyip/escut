@@ -1,5 +1,5 @@
 module.exports = {
-    about: {
+    help: {
         arguments: '',
         description: '',
         examples: [
@@ -11,3 +11,4 @@ module.exports = {
 function run(config) {
     return JSON.stringify(config.queryResults, null, 4)
 }
+

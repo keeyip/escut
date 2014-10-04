@@ -1,5 +1,5 @@
 module.exports = {
-    about: {
+    help: {
         arguments: '',
         description: '',
         examples: [
@@ -13,3 +13,4 @@ var printAdjustedAst = require('../ast/printAdjustedAst');
 function run(config) {
     return printAdjustedAst(config.code, config.ast);
 }
+

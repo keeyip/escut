@@ -1,5 +1,5 @@
 module.exports = {
-    about: {
+    help: {
         arguments: '',
         description: '',
         examples: [
@@ -20,3 +20,4 @@ function run(config) {
         return code.substring(indentationBefore(node.range[0]), node.range[1])
     }).join('\n')
 }
+

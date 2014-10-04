@@ -1,5 +1,5 @@
 module.exports = {
-    about: {
+    help: {
         arguments: '',
         description: '',
         examples: [
@@ -39,4 +39,5 @@ function run(config, template) {
     });
     return printAdjustedAst(config.code, config.ast);
 }
+
 

@@ -1,5 +1,5 @@
 module.exports = {
-    about: {
+    help: {
         arguments: '',
         description: '',
         attributes: {
@@ -18,4 +18,5 @@ function helper(nodes, options) {
         return printAdjustedAst(options.data.code, node, node.range[0], node.range[1]);
     }).join(', ');
 }
+
 
