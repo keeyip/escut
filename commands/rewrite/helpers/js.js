@@ -1,10 +1,13 @@
 module.exports = {
     help: {
-        arguments: '',
-        description: '',
-        attributes: {
-        },
-        examples: [
+        arguments: [
+            {
+                name: 'node',
+                description: 'An AST node'
+            }
+        ],
+        description: 'Prints javascript for the given AST node',
+        attributes: [
         ]
     },
     helper: helper

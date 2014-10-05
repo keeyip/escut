@@ -2,43 +2,50 @@
 
     npm install -g escut
 
-
-
     Usage: escut selector command file.js
 
-        @param selector: see https://github.com/jrfeenst/esquery
-        @param command: remove | yank | json
+        # A CSS-like selector, see https://github.com/keeyip/esquery
+        @selector
 
-        Example: escut "Property[key.name='render'][value.type='FunctionExpression']" "yank" samples/test1.js
+        @command json
 
+        @command print
 
-# Example
+        @command quote-member
 
+        @command quote-property
 
-    escut "Property[key.name='render'][value.type='FunctionExpression']" "yank" samples/test1.js
+        @command remove
 
-        render: function() {
-        }
+        # Rewrites code using a handlebars replacement string
+        @command rewrite replacement
 
+            # A handlebars replacement string
+            @param replacement
 
+                # Prints javascript for the given AST node
+                @helper js node
 
+                    # An AST node
+                    @param node
 
-    escut "Property[key.name='build'][value.type='FunctionExpression']" "remove" samples/test1.js
-    var x = {
+                # Prints each node, separated by `, `
+                @helper splat nodes
 
-        /*
-        Do not remove this
-        */
-        render: function() {
-        },
-        close: function() {
-        }
-    }
+                    # List of AST nodes
+                    @param nodes
 
+            # Use `_.bind` instead of `Function.prototype.bind`
+            @example
+                @file.js ```y.bind(this, a, b, c)```
+                @sh escut "CallExpression[callee.property.name=bind]" "rewrite _.bind({{js callee.object}}, {{splat arguments}})" file.js
+                @output  ```_.bind(y, this, a, b, c)```
 
-# Howto
+        @command yank
 
-## Rename an object property in many files
+# Design
+
+# Tutorial
 
 In the code below, suppose you want to rename `about:` to `help:`
 ```js
@@ -82,3 +89,10 @@ Solution:
 # sponge -- http://brewformulas.org/moreutil
 tree -f -i -n --noreport commands | grep .js$ | parallel "escut \"Property[key.name='about'] > .key\" \"rewrite help\" {} | sponge {}"
 ```
+
+# Cookbook
+
+## Rename an object property
+
+## Use `_.bind()` instead of `Function.prototype.bind`
+

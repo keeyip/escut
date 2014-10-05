@@ -1,6 +1,6 @@
 {
   "name": "escut",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Cli tool to refactor and query javascript",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -23,6 +23,7 @@
     "escodegen": "~1.4.0",
     "mustache-esquery": "~0.3.2",
     "object-path": "~0.6.0",
-    "handlebars": "~2.0.0"
+    "handlebars": "~2.0.0",
+    "require-children": "0.0.8"
   }
 }

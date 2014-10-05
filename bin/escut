@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+var prefixLines = require('../str/prefixLines');
 var esprima = require('esprima')
 var escodegen = require('escodegen')
 var estraverse = require('estraverse')
@@ -7,6 +8,10 @@ var fs = require('fs')
 var objectPath = require('object-path');
 var _ = require('underscore')
 var esquery = require('mustache-esquery')
+var COMMANDS = require('require-children')('../commands', module);
+_.each(COMMANDS, function(spec, name) {
+    if (_.isString(spec)) COMMANDS[name] = require('../commands/' + name);
+});
 
 esquery.matchMustache = function(node, selector, ancestry) {
     var parts = selector.expr.split(/\s+/);
@@ -25,10 +30,31 @@ if (process.argv.length !== 5) {
     console.log('')
     console.log('Usage: escut selector command file.js')
     console.log('')
-    console.log(prefixLines('@param selector: see https://github.com/keeyip/esquery', '    '))
-    console.log(prefixLines('@param command: remove | yank | quote-property | quote-member | "rewrite _.bind({{js callee.object}}, {{splat arguments}})" | json', '    '))
-    console.log('')
-    console.log(prefixLines('Example: escut "Property[key.name=\'render\'][value.type=\'FunctionExpression\']" "yank" samples/test1.js', '    '))
+    console.log(prefixLines('# A CSS-like selector, see https://github.com/keeyip/esquery', '    '))
+    console.log(prefixLines('@selector', '    '))
+    _.each(COMMANDS, function(spec, name) {
+        console.log('')
+        var help = spec.help;
+        if (help.description) console.log(prefixLines('# ' + help.description, '    '))
+        console.log(prefixLines('@command ' + name + ' ' + _.pluck(help.arguments, 'name').join(' '), '    '))
+        _.each(help.arguments, function(arg) {
+            console.log('')
+            console.log(prefixLines('# ' + arg.description, '        '))
+            console.log(prefixLines('@param ' + arg.name, '        '))
+        });
+        if (help.detail) {
+            console.log(prefixLines(help.detail, '        '))
+        }
+        _.each(help.examples, function(example) {
+            console.log('')
+            console.log(prefixLines('# ' + example.description, '        '))
+            console.log(prefixLines('@example', '        '))
+            var cli = 'escut "' + example.selector + '" "' + name + ' ' + example.argstring + '" file.js'
+            console.log(prefixLines('@file.js ```' + example.input + '```', '            '))
+            console.log(prefixLines('@sh ' + cli, '            '))
+            console.log(prefixLines('@output  ```' + example.output + '```', '            '))
+        });
+    });
     console.log('')
     return;
 }
@@ -62,9 +88,9 @@ function filterIt(str) {
             if (matchSpace) {
                 var commandName = command.substring(0, matchSpace.index);
                 var arg = command.substring(matchSpace.index).trim();
-                return require('../commands/' + commandName).run(config, arg);
+                return COMMANDS[commandName].run(config, arg);
             } else {
-                return require('../commands/' + command).run(config);
+                return COMMANDS[command].run(config);
             }
         }, null)
     }
@@ -96,10 +122,5 @@ function toAst(config) {
         console.error(config.filename + ': invalid code, make sure there are no syntax errors!')
         process.exit(1)
     }
-}
-function prefixLines(str, prefix) {
-    return _.map(str.split('\n'), function(s) {
-        return prefix + s
-    }).join('\n')
 }
 
