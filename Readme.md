@@ -45,6 +45,22 @@
 
 # Design
 
+# Todo
+
+* Use escope to do scope lookups
+* Command to output callgraph
+* Command to output scopes and variables as a tree
+* Command to find unused variables
+* Example that traces specific function calls
+* Command to summarize jsdoc
+* Command to create jsdoc annotations
+
+# References
+
+## spidermonkey AST
+
+## esquery
+
 # Tutorial
 
 In the code below, suppose you want to rename `about:` to `help:`
@@ -96,3 +112,6 @@ tree -f -i -n --noreport commands | grep .js$ | parallel "escut \"Property[key.n
 
 ## Use `_.bind()` instead of `Function.prototype.bind`
 
+# Internals
+
+## __escutNewCode
