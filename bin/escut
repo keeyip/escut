@@ -2,6 +2,7 @@
 
 var prefixLines = require('../str/prefixLines');
 var esprima = require('esprima')
+var escope = require('escope')
 var escodegen = require('escodegen')
 var estraverse = require('estraverse')
 var fs = require('fs')
@@ -111,12 +112,21 @@ function readIt(filename) {
 }
 function toAst(config) {
     try {
+        var ast = esprima.parse(config.code, {
+            tokens: true,
+            range: true,
+            comment: true
+        });
+        var scopeManager = escope.analyze(ast);
+        scopeManager.attach();
+        estraverse.traverse(ast, {
+            enter: function(node, parent) {
+                node.parent = parent;
+            }
+        });
+
         return _.extend(config, {
-            ast: esprima.parse(config.code, {
-                tokens: true,
-                range: true,
-                comment: true
-            })
+            ast: ast
         })
     } catch (err) {
         console.error(config.filename + ': invalid code, make sure there are no syntax errors!')

@@ -43,3 +43,8 @@ test_remove:
 test_remove_after_multiline_comment:
 	escut "Property[key.name='build'][value.type='FunctionExpression']" "remove" samples/test1.js
 
+test_rewrite_leaked_globals:
+	escut '!AssignmentExpression > Identifier.left:{isGlobal}' "rewrite var {{js this.left}} = {{js right}}" samples/globals.js
+
+test_get:
+	escut 'AssignmentExpression > Identifier.left:{isGlobal}' "rewrite {{js (get this path='../right')}}" samples/globals.js
