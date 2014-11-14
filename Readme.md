@@ -1,4 +1,5 @@
 # Install as command-line tool
+[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/keeyip/escut?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
     npm install -g escut
 
